@@ -1,79 +1,68 @@
+import re
+from typing import List, Dict
+
+class Node:
+    def __init__(self, value, left=None, right=None):
+        self.value = value
+        self.left = left
+        self.right = right
+
+def parse(puzzle: str, mapping: Dict[str, int]) -> Node:
+    if len(puzzle) == 1:
+        return Node(mapping[puzzle], None, None)
+
+    op_index = puzzle.find("+") or puzzle.find("-")
+    left = parse(puzzle[:op_index].strip(), mapping)
+    right = parse(puzzle[op_index + 1:].strip(), mapping)
+
+    return Node(puzzle[op_index], left, right)
+
+def dig_perms(digits: List[int], length: int) -> List[List[int]]:
+    if length == 0:
+        return [[]]
+    return [[d] + perm for d in digits for perm in dig_perms(digits, length - 1)]
+
+def check_rec(node: Node, mapping: Dict[str, int], carry: int) -> bool:
+    if node.left is None:
+        return mapping[node.value] == carry
+
+    left_val = mapping[node.left.value]
+    right_val = mapping[node.right.value]
+    op = node.value
+
+    if op == "+":
+        new_carry, rem = divmod(left_val + right_val + carry, 10)
+    elif op == "-":
+        new_carry, rem = divmod(left_val - right_val - carry, 10)
+
+    if rem != mapping[node.value]:
+        return False
+
+    return check_rec(node.left, mapping, new_carry) and check_rec(node.right, mapping, new_carry)
+
 from itertools import permutations
 
-def dig_perms(digits, non_zero_letters, zero_letters):
-    # Generate all possible permutations of the digits
-    all_perms = permutations(digits)
+import re
+from itertools import permutations
 
-    # Filter out permutations that violate the constraints
-    valid_perms = []
-    for perm in all_perms:
-        # Check if any non-zero letter is assigned to 0
-        if any(perm.index(letter) == 0 for letter in non_zero_letters):
-            continue
-        # Replace 0 with each zero letter and check if the resulting permutation is valid
-        for letter in zero_letters:
-            zero_index = perm.index(letter)
-            if zero_index == 0 and letter not in non_zero_letters:
-                continue
-            perm_with_zero = list(perm)
-            perm_with_zero[zero_index] = '0'
-            if ''.join(perm_with_zero) == '0' and any(letter in zero_letters for letter in digits):
-                continue
-            valid_perms.append(tuple(perm_with_zero))
-
-    return valid_perms
-
-def check_rec(node, carry=0):
-    # Check if the node is a leaf (i.e., a digit)
-    if isinstance(node, int):
-        return (node + carry) % 10, (node + carry) // 10
-
-    # Recursively evaluate the left and right sub-trees
-    left_value, left_carry = check_rec(node.left, carry)
-    right_value, right_carry = check_rec(node.right, left_carry)
-
-    # Compute the result and the new carry value
-    result = left_value + right_value
-    new_carry = right_carry + (result // 10)
-
-    return result % 10, new_carry
-    
+import re
+from itertools import permutations
+from collections import defaultdict
 
 def solve(puzzle):
-    # Split the puzzle into words and the result
-    words = puzzle.split(" + ")
-    result = words.pop()
-
-    # Get the set of all letters in the puzzle
-    letters = set(result)
-    for word in words:
-        letters |= set(word)
-
-    # Get the set of letters that cannot be assigned to 0
-    non_zero_letters = set(word[0] for word in words) | set(result[0])
-
-    # Generate all possible permutations of digits for the given letters
-    digit_perms = dig_perms('0123456789', non_zero_letters, letters-non_zero_letters)
-
-    # Try each digit permutation until a valid solution is found
-    for digits in digit_perms:
-        # Create a dictionary mapping letters to digits
-        mapping = dict(zip(letters, digits))
-
-        # Check if the mapping has unique values for each letter
-        if len(set(mapping.values())) != len(mapping):
+    letters = set(re.findall("[A-Z]", puzzle))
+    first_letters = set(re.findall("(^|\W)([A-Z])[A-Z]", puzzle))
+    first_letters = {x[1] for x in first_letters}
+    leading_zero_letters = set(re.findall("(^|\W)([A-Z])[0-9]", puzzle))
+    leading_zero_letters = {x[1] for x in leading_zero_letters}
+    letters_dict = {letter: None for letter in letters}
+    for perm in permutations(range(10), len(letters)):
+        if 0 in perm[:len(leading_zero_letters)]:
             continue
-
-        # Evaluate the expression using the current mapping
-        expression_value = 0
-        for word in words:
-            word_value = int(''.join(mapping[letter] for letter in word))
-            expression_value += word_value
-        result_value = int(''.join(mapping[letter] for letter in result))
-
-        # Check if the current mapping is a valid solution
-        if expression_value == result_value:
-            return mapping
-
-    # If no valid solution was found, return None
+        letters_dict.update(dict(zip(letters, perm)))
+        if any(letters_dict[first] == 0 for first in first_letters):
+            continue
+        left, right = puzzle.replace(" ", "").split("==")
+        if sum(int("".join([str(letters_dict[letter]) for letter in word])) for word in left.split("+")) == int("".join([str(letters_dict[letter]) for letter in right])):
+            return letters_dict
     return None

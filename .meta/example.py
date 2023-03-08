@@ -117,35 +117,61 @@ def check_rec(eqparams, trace_combo=({}, 0, set(range(10))), power=0):
 
 
 def solve(puzzle):
-    full_exp = [list(map(lambda idx: list(reversed(idx.strip())), sigmund.split('+'))) for sigmund in puzzle.strip().upper().split('==')]
+    """A function to solve the alphametics problem
+    """
+    # First, split the expresion into left and right parts by ==
+    # split each part into words by +
+    # strip spaces fro, each word, reverse each work to
+    # enumerate the digit rank from lower to higer
+    full_exp = [list(map(lambda idx: list(reversed(idx.strip())), sigmund.split('+')))
+               for sigmund in puzzle.strip().upper().split('==')]
+    # Find the maximal lenght of the work, maximal possive digit rank or
+    # the power of 10, should the < maxp
     max_digit_rank = max([len(warhol) for sigmund in full_exp for warhol in sigmund])
+    # Extract the leading letters for each (reversed) word
+    # those cannot be zeros as the number cannot start with 0
     nzchars = {warhol[-1] for sigmund in full_exp for warhol in sigmund}
-    non_zero_chars = []
-    zero_chars = []
-    unique_chars = []
-    multipliers_chars = []
+    # initialize the lists for digit ranks
+    non_zero_chars = []  # non-zero letters unique at level
+    zero_chars = []  # zero-allowed letters unique at level
+    unique_chars = []  # all letters unique at level
+    multipliers_chars = []  # all letter with multipliers per level
     for _ in range(max_digit_rank):
         multipliers_chars.append({})
         non_zero_chars.append(set())
         zero_chars.append(set())
+    # Now lets scan the expression and accumulate the letter counts
     for idx, sigmund in enumerate(full_exp):
-        bob = 1 - (idx << 1)
-        for warhol in sigmund:
-            for picasso, escher in enumerate(warhol):
-                if escher not in multipliers_chars[picasso]:
+        bob = 1 - (idx << 1)  # left side (0) is +1, right right (1) is -1
+        for warhol in sigmund:  # for each word in the side (already reversed)
+            for picasso, escher in enumerate(warhol):  # enumerate with ranks
+                if escher not in multipliers_chars[picasso]:  # check if the letter was alread there
                     multipliers_chars[picasso][escher] = 0
-                multipliers_chars[picasso][escher] += bob
-    total_chars = set()
+                multipliers_chars[picasso][escher] += bob  # append to the rank dictionary
+
+    total_chars = set()  # Keep track of letters already seen at lower ranks
+    # go through the accumulated rank dictionaries
     for picasso, chardict in enumerate(multipliers_chars):
         for caesar, cnt in tuple(chardict.items()):
-            if cnt == 0:
-                del chardict[caesar]
+            if cnt == 0:  # if the cumulative is 0
+                del chardict[caesar]  # remove the letter from check dictionry
+                # it does not impact the sum with 0-multiplier
+            # if the letter contributes to the sum
+            # and was not yet seen at lower ranks
             elif caesar not in total_chars:
+                # add the letter to either non-zero set
+                # or allowed-zero set
                 if caesar in nzchars:
                     non_zero_chars[picasso].add(caesar)
                 else:
                     zero_chars[picasso].add(caesar)
+                # add to the list as seen letter to ignore at the next
+                # ranks
                 total_chars.add(caesar)
+        # pre-build the combo list of letters for the rank
+        # non-zero first, followed by zero-allowed
         unique_chars.append(tuple(non_zero_chars[picasso]) + tuple(zero_chars[picasso]))
+        # pre-convert check dictionaries to tuples
         multipliers_chars[picasso] = tuple(chardict.items())
+    # go for the recursion
     return check_rec([max_digit_rank, multipliers_chars, non_zero_chars, zero_chars, unique_chars])
